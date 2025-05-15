@@ -6,6 +6,9 @@ from flask import Flask, request, session, redirect, url_for, jsonify
 from datetime import date
 from flask import render_template
 from datetime import timedelta
+from decimal import Decimal
+from datetime import datetime
+
 
 
 
@@ -78,7 +81,9 @@ def signup():
         phone = request.form["phone"]
         email = request.form["email"]
         password = request.form["password"]
+
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+
 
         conn = get_db_connection()
         cur = conn.cursor()
@@ -206,6 +211,169 @@ def borrow():
 
     return render_template("borrow.html", books=books)
 
+# First, let's add the return_book route to app.py
+
+# Add these imports at the top of app.py if they're not already there
+from datetime import date, timedelta, datetime
+from decimal import Decimal
+
+# Add this route to app.py
+@app.route("/my-books", methods=["GET"])
+def my_books():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    user_id = session["user_id"]
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Get all active bookings for the user with book details
+    cur.execute("""
+        SELECT b.Booking_ID, bk.Book_Title, b.Booking_Date, b.Due_Date, bk.Book_ID
+        FROM Booking b
+        JOIN Book bk ON b.Book_ID = bk.Book_ID
+        WHERE b.User_ID = %s AND b.Return_Date IS NULL
+        ORDER BY b.Due_Date ASC
+    """, (user_id,))
+    
+    active_bookings = cur.fetchall()
+    
+    # Get past bookings (returned books)
+    cur.execute("""
+        SELECT b.Booking_ID, bk.Book_Title, b.Booking_Date, b.Due_Date, b.Return_Date
+        FROM Booking b
+        JOIN Book bk ON b.Book_ID = bk.Book_ID
+        WHERE b.User_ID = %s AND b.Return_Date IS NOT NULL
+        ORDER BY b.Return_Date DESC
+    """, (user_id,))
+    
+    past_bookings = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+    
+    return render_template("my_books.html", active_bookings=active_bookings, past_bookings=past_bookings)
+
+@app.route("/return-book/<int:booking_id>", methods=["POST"])
+def return_book(booking_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    user_id = session["user_id"]
+    today = date.today()
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Verify the booking belongs to the user
+    cur.execute("""
+        SELECT b.Book_ID, b.Due_Date
+        FROM Booking b
+        WHERE b.Booking_ID = %s AND b.User_ID = %s AND b.Return_Date IS NULL
+    """, (booking_id, user_id))
+    
+    booking = cur.fetchone()
+    if not booking:
+        cur.close()
+        conn.close()
+        return "Invalid booking", 403
+    
+    book_id, due_date = booking
+    
+    # Update the booking with return date
+    cur.execute("""
+        UPDATE Booking
+        SET Return_Date = %s
+        WHERE Booking_ID = %s
+    """, (today, booking_id))
+    
+    # Increase available copies of the book
+    cur.execute("""
+        UPDATE Book
+        SET Available_Copies = Available_Copies + 1
+        WHERE Book_ID = %s
+    """, (book_id,))
+    
+    # Check if return is late and create penalty if needed
+    if today > due_date:
+        days_late = (today - due_date).days
+        late_fee = Decimal(days_late * 0.50)  # $0.50 per day late
+        
+        cur.execute("""
+            INSERT INTO Penalty (Late_Fee, Date_Issued, Date_Returned, Booking_ID)
+            VALUES (%s, %s, %s, %s)
+        """, (late_fee, today, today, booking_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return redirect(url_for("my_books"))
+
+# Add a route to view penalties
+@app.route("/penalties")
+def view_penalties():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    user_id = session["user_id"]
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT p.PenaltyID, p.Late_Fee, p.Date_Issued, p.Date_Returned, 
+               p.Payment_Date, b.Booking_ID, bk.Book_Title
+        FROM Penalty p
+        JOIN Booking b ON p.Booking_ID = b.Booking_ID
+        JOIN Book bk ON b.Book_ID = bk.Book_ID
+        WHERE b.User_ID = %s
+        ORDER BY p.Date_Issued DESC
+    """, (user_id,))
+    
+    penalties = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+    
+    return render_template("penalties.html", penalties=penalties)
+
+# Add a route to pay penalties
+@app.route("/pay-penalty/<int:penalty_id>", methods=["POST"])
+def pay_penalty(penalty_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    user_id = session["user_id"]
+    today = date.today()
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Verify the penalty belongs to the user
+    cur.execute("""
+        SELECT p.PenaltyID
+        FROM Penalty p
+        JOIN Booking b ON p.Booking_ID = b.Booking_ID
+        WHERE p.PenaltyID = %s AND b.User_ID = %s AND p.Payment_Date IS NULL
+    """, (penalty_id, user_id))
+    
+    if not cur.fetchone():
+        cur.close()
+        conn.close()
+        return "Invalid penalty", 403
+    
+    # Update the penalty with payment date
+    cur.execute("""
+        UPDATE Penalty
+        SET Payment_Date = %s
+        WHERE PenaltyID = %s
+    """, (today, penalty_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return redirect(url_for("view_penalties"))
 
 if __name__ == "__main__":
     app.run(debug=True)

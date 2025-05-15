@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>My Current Bookings</h2>
+<table>
+    <tr><th>Title</th><th>Booking Date</th><th>Due Date</th><th>Action</th></tr>
+    {% for b in active_bookings %}
+    <tr>
+        <td>{{ b[1] }}</td>
+        <td>{{ b[2] }}</td>
+        <td>{{ b[3] }}</td>
+        <td>
+            <form method="POST" action="{{ url_for('return_book', booking_id=b[0]) }}">
+                <button type="submit">Return</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>Returned Books</h2>
+<table>
+    <tr><th>Title</th><th>Booking Date</th><th>Due Date</th><th>Return Date</th></tr>
+    {% for b in past_bookings %}
+    <tr>
+        <td>{{ b[1] }}</td>
+        <td>{{ b[2] }}</td>
+        <td>{{ b[3] }}</td>
+        <td>{{ b[4] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
