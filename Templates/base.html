@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Booky Library</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+</head>
+<body>
+    <header>
+        <h1>📚 Booky Library System</h1>
+        <nav>
+            <a href="/">Home</a> |
+            <a href="/signup">Sign Up</a> |
+            <a href="/login">Log In</a> |
+            <a href="/books">Books</a>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

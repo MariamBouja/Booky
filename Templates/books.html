@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Available Books</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Genre</th>
+            <th>Language</th>
+            <th>Available Copies</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in books %}
+        <tr>
+            <td>{{ b[1] }}</td>
+            <td>{{ b[2] }}</td>
+            <td>{{ b[3] }}</td>
+            <td>{{ b[4] }}</td>
+            <td>{{ b[5] }}</td>
+            <td>
+                {% if b[5] > 0 %}
+                    <form method="POST" action="{{ url_for('borrow') }}">
+                        <input type="hidden" name="book_id" value="{{ b[0] }}">
+                        <button type="submit">Borrow</button>
+                    </form>
+                {% else %}
+                    <span>Not Available</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Borrow a Book</h2>
+<form method="POST">
+    <label for="book_id">Select Book:</label>
+    <select name="book_id" id="book_id">
+        {% for b in books %}
+        <option value="{{ b[0] }}">{{ b[1] }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Borrow</button>
+</form>
+{% endblock %}
