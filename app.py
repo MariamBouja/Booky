@@ -17,5 +17,24 @@ def get_db_connection():
     )
     conn.autocommit = True
     return conn
+
+@app.route("/")
+def home():
+    return "Welcome to Booky!"
+
+
+@app.route("/test-db")
+def test_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT version();")
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return f"Database connected: {result[0]}"
+
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
