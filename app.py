@@ -81,25 +81,34 @@ def signup():
         phone = request.form["phone"]
         email = request.form["email"]
         password = request.form["password"]
-
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-
 
         conn = get_db_connection()
         cur = conn.cursor()
 
         try:
+            # Check if email already exists
+            cur.execute("SELECT 1 FROM \"AppUser\" WHERE Email = %s", (email,))
+            if cur.fetchone():
+                return "Email already registered.", 400
+
+            # ✅ Generate new User_ID
+            cur.execute("SELECT COALESCE(MAX(User_ID), 100) + 1 FROM \"AppUser\"")
+            new_user_id = cur.fetchone()[0]
+
+            # ✅ Insert with generated ID
             cur.execute("""
-                INSERT INTO "AppUser" (User_Fname, User_Lname, Phone, Email, Password, User_Is_Student)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (fname, lname, phone, email, hashed_password, True))
+                INSERT INTO "AppUser" (User_ID, User_Fname, User_Lname, Phone, Email, Password, User_Is_Student)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (new_user_id, fname, lname, phone, email, hashed_password, True))
 
             conn.commit()
             return redirect(url_for("home"))
 
-        except psycopg2.IntegrityError:
+        except psycopg2.IntegrityError as e:
             conn.rollback()
-            return "Email already exists", 400
+            print("Signup error:", e)
+            return "Signup error: " + str(e), 400
 
         finally:
             cur.close()
@@ -210,12 +219,6 @@ def borrow():
     conn.close()
 
     return render_template("borrow.html", books=books)
-
-# First, let's add the return_book route to app.py
-
-# Add these imports at the top of app.py if they're not already there
-from datetime import date, timedelta, datetime
-from decimal import Decimal
 
 # Add this route to app.py
 @app.route("/my-books", methods=["GET"])
