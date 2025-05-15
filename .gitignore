@@ -1,0 +1,51 @@
+# macOS system files
+.DS_Store
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+ENV/
+env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# dotenv environment files
+.env
+.env.*
+
+# Logs and temp files
+*.log
+*.tmp
+
+# PostgreSQL backup or SQL dump files
+*.sql
+*.dump
+
+# IDE settings
+.vscode/
+.idea/
+
+# OS or file explorer metadata
+Thumbs.db
+Desktop.ini
+
+# Test coverage
+htmlcov/
+coverage.xml
+.cache
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# mypy
+.mypy_cache/
+.dmypy.json
