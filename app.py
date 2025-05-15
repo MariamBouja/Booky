@@ -34,6 +34,19 @@ def test_db():
     return f"Database connected: {result[0]}"
 
 
+@app.route("/books")
+def list_books():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT Book_ID, Book_Title, Book_Condition, Available_Copies FROM Book;")
+    books = cur.fetchall()
+    cur.close()
+    conn.close()
+    return {
+        "books": [
+            {"id": b[0], "title": b[1], "condition": b[2], "copies": b[3]} for b in books
+        ]
+    }
 
 
 if __name__ == "__main__":
