@@ -1,7 +1,7 @@
 # Database configuration
 DB_NAME = "project" 
 DB_USER = "postgres" 
-DB_PASS = "postgres" 
+DB_PASS = " " 
 DB_HOST = "localhost" 
 DB_PORT = "5432"
 

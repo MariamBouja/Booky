@@ -49,3 +49,5 @@ Pipfile.lock
 # mypy
 .mypy_cache/
 .dmypy.json
+
+config.py
