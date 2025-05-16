@@ -1,5 +1,5 @@
 # Database configuration
-DB_NAME = "Project" 
+DB_NAME = "project" 
 DB_USER = "postgres" 
 DB_PASS = "W230604" 
 DB_HOST = "localhost" 

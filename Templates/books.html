@@ -22,7 +22,7 @@
             <td>{{ b[4] }}</td>
             <td>{{ b[5] }}</td>
             <td>
-                {% if b[5] > 0 %}
+                {% if b[5]|int > 0 %}
                     <form method="POST" action="{{ url_for('borrow') }}">
                         <input type="hidden" name="book_id" value="{{ b[0] }}">
                         <button type="submit">Borrow</button>

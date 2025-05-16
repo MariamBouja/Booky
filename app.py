@@ -1,44 +1,28 @@
 from flask_bcrypt import Bcrypt
+from flask import flash
 import psycopg2
-from psycopg2 import sql
-import config
-from flask import Flask, request, session, redirect, url_for, jsonify
-from datetime import date
-from flask import render_template
-from datetime import timedelta
+from flask import Flask, request, session, redirect, url_for, jsonify, render_template
+from datetime import date, timedelta, datetime
 from decimal import Decimal
-from datetime import datetime
-
-
-
-
+import config
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
 bcrypt = Bcrypt(app)
 
-# Database connection function
 def get_db_connection():
-    conn = psycopg2.connect(
+    return psycopg2.connect(
         dbname=config.DB_NAME,
         user=config.DB_USER,
         password=config.DB_PASS,
         host=config.DB_HOST,
         port=config.DB_PORT
     )
-    conn.autocommit = True
-    return conn
-
-
 
 @app.route("/")
 def home():
     return render_template("index.html")
-
-
-
-
 
 @app.route("/test-db")
 def test_db():
@@ -50,26 +34,16 @@ def test_db():
     conn.close()
     return f"Database connected: {result[0]}"
 
-
-
-
-
-
 @app.route("/books")
 def list_books():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM Book;")
+    cur.execute("SELECT * FROM book WHERE available_copies > 0;")
     books = cur.fetchall()
     cur.close()
     conn.close()
 
-    headers = ["ID", "Title", "Author_ID", "Year", "Genre", "Language", "Copies", "Condition"]
-    return render_template("books.html", title="All Books", headers=headers, rows=books)
-
-
-
-
+    return render_template("books.html", books=books)
 
 
 
@@ -87,18 +61,15 @@ def signup():
         cur = conn.cursor()
 
         try:
-            # Check if email already exists
-            cur.execute("SELECT 1 FROM \"AppUser\" WHERE Email = %s", (email,))
+            cur.execute("SELECT 1 FROM Appuser WHERE email = %s", (email,))
             if cur.fetchone():
                 return "Email already registered.", 400
 
-            # ✅ Generate new User_ID
-            cur.execute("SELECT COALESCE(MAX(User_ID), 100) + 1 FROM \"AppUser\"")
+            cur.execute("SELECT COALESCE(MAX(user_id), 100) + 1 FROM Appuser")
             new_user_id = cur.fetchone()[0]
 
-            # ✅ Insert with generated ID
             cur.execute("""
-                INSERT INTO "AppUser" (User_ID, User_Fname, User_Lname, Phone, Email, Password, User_Is_Student)
+                INSERT INTO Appuser (user_id, user_fname, user_lname, phone, email, password, user_is_student)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (new_user_id, fname, lname, phone, email, hashed_password, True))
 
@@ -107,7 +78,6 @@ def signup():
 
         except psycopg2.IntegrityError as e:
             conn.rollback()
-            print("Signup error:", e)
             return "Signup error: " + str(e), 400
 
         finally:
@@ -115,9 +85,6 @@ def signup():
             conn.close()
 
     return render_template("signup.html")
-
-
-
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -128,22 +95,19 @@ def login():
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT User_ID, Password FROM \"AppUser\" WHERE Email = %s", (email,))
+        cur.execute("SELECT user_id, password FROM Appuser WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
 
-        if user and bcrypt.check_password_hash(user[1], password):
+        # ✅ Add check for NULL password
+        if user and user[1] and bcrypt.check_password_hash(user[1], password):
             session["user_id"] = user[0]
             return redirect(url_for("home"))
         else:
             return "Invalid credentials", 401
 
     return render_template("login.html")
-
-
-
-
 
 
 
@@ -162,220 +126,174 @@ def borrow():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT COUNT(*) FROM Booking WHERE User_ID = %s AND Return_Date IS NULL", (user_id,))
-        active_count = cur.fetchone()[0]
-        if active_count >= 3:
-            return "Booking limit reached", 403
+        try:
+            # Check limit
+            cur.execute("SELECT COUNT(*) FROM booking WHERE user_id = %s AND return_date IS NULL", (user_id,))
+            if cur.fetchone()[0] >= 3:
+                flash("You reached the limit of 3 active borrowed books.", "error")
+                return redirect(url_for("borrow"))
 
-        cur.execute("SELECT Available_Copies FROM Book WHERE Book_ID = %s", (book_id,))
-        copies = cur.fetchone()[0]
-        if copies <= 0:
-            return "Book not available", 403
+            # Check book availability
+            cur.execute("SELECT available_copies FROM book WHERE book_id = %s", (book_id,))
+            copies = cur.fetchone()
+            if not copies or int(copies[0]) <= 0:
+                flash("This book is no longer available.", "error")
+                return redirect(url_for("borrow"))
 
-        cur.execute("""
-            SELECT * FROM Booking
-            WHERE User_ID = %s AND Book_ID = %s AND Return_Date IS NULL
-        """, (user_id, book_id))
-        if cur.fetchone():
-            return "Already borrowed this book.", 403
+            # Already borrowed?
+            cur.execute("SELECT 1 FROM booking WHERE user_id = %s AND book_id = %s AND return_date IS NULL", (user_id, book_id))
+            if cur.fetchone():
+                flash("You already borrowed this book.", "warning")
+                return redirect(url_for("borrow"))
 
-        cur.execute("""
-            INSERT INTO Booking (Booking_Date, Due_Date, User_ID, Book_ID)
-            VALUES (%s, %s, %s, %s)
-        """, (today, due, user_id, book_id))
+            # Borrow the book
+            cur.execute("""
+                INSERT INTO booking (booking_date, due_date, user_id, book_id)
+                VALUES (%s, %s, %s, %s)
+            """, (today, due, user_id, book_id))
 
-        cur.execute("""
-            UPDATE Book SET Available_Copies = Available_Copies - 1
-            WHERE Book_ID = %s
-        """, (book_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
+            cur.execute("""
+                UPDATE book SET available_copies = available_copies - 1
+                WHERE book_id = %s
+            """, (book_id,))
 
-        return redirect(url_for("list_books"))
+            conn.commit()
+            flash("Book borrowed successfully!", "success")
+            return redirect(url_for("my_books"))
 
-    else:
-        # GET request → show form
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT Book_ID, Book_Title FROM Book WHERE Available_Copies > 0")
-        books = cur.fetchall()
-        cur.close()
-        conn.close()
+        finally:
+            cur.close()
+            conn.close()
 
-        return render_template("borrow.html", books=books)
-
-
-
-    
-
-
-    # GET request → Show form
+    # GET request: show books
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT Book_ID, Book_Title FROM Book WHERE Available_Copies > 0")
+    cur.execute("SELECT book_id, book_title FROM book WHERE available_copies > 0")
     books = cur.fetchall()
     cur.close()
     conn.close()
 
     return render_template("borrow.html", books=books)
 
-# Add this route to app.py
-@app.route("/my-books", methods=["GET"])
+
+@app.route("/my-books")
 def my_books():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    
+
     user_id = session["user_id"]
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Get all active bookings for the user with book details
+
     cur.execute("""
-        SELECT b.Booking_ID, bk.Book_Title, b.Booking_Date, b.Due_Date, bk.Book_ID
-        FROM Booking b
-        JOIN Book bk ON b.Book_ID = bk.Book_ID
-        WHERE b.User_ID = %s AND b.Return_Date IS NULL
-        ORDER BY b.Due_Date ASC
+        SELECT b.booking_id, bk.book_title, b.booking_date, b.due_date, bk.book_id
+        FROM booking b
+        JOIN book bk ON b.book_id = bk.book_id
+        WHERE b.user_id = %s AND b.return_date IS NULL
+        ORDER BY b.due_date ASC
     """, (user_id,))
-    
     active_bookings = cur.fetchall()
-    
-    # Get past bookings (returned books)
+
     cur.execute("""
-        SELECT b.Booking_ID, bk.Book_Title, b.Booking_Date, b.Due_Date, b.Return_Date
-        FROM Booking b
-        JOIN Book bk ON b.Book_ID = bk.Book_ID
-        WHERE b.User_ID = %s AND b.Return_Date IS NOT NULL
-        ORDER BY b.Return_Date DESC
+        SELECT b.booking_id, bk.book_title, b.booking_date, b.due_date, b.return_date
+        FROM booking b
+        JOIN book bk ON b.book_id = bk.book_id
+        WHERE b.user_id = %s AND b.return_date IS NOT NULL
+        ORDER BY b.return_date DESC
     """, (user_id,))
-    
     past_bookings = cur.fetchall()
-    
+
     cur.close()
     conn.close()
-    
     return render_template("my_books.html", active_bookings=active_bookings, past_bookings=past_bookings)
 
 @app.route("/return-book/<int:booking_id>", methods=["POST"])
 def return_book(booking_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
-    
+
     user_id = session["user_id"]
     today = date.today()
-    
+
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Verify the booking belongs to the user
     cur.execute("""
-        SELECT b.Book_ID, b.Due_Date
-        FROM Booking b
-        WHERE b.Booking_ID = %s AND b.User_ID = %s AND b.Return_Date IS NULL
+        SELECT book_id, due_date
+        FROM booking
+        WHERE booking_id = %s AND user_id = %s AND return_date IS NULL
     """, (booking_id, user_id))
-    
     booking = cur.fetchone()
     if not booking:
         cur.close()
         conn.close()
         return "Invalid booking", 403
-    
+
     book_id, due_date = booking
-    
-    # Update the booking with return date
-    cur.execute("""
-        UPDATE Booking
-        SET Return_Date = %s
-        WHERE Booking_ID = %s
-    """, (today, booking_id))
-    
-    # Increase available copies of the book
-    cur.execute("""
-        UPDATE Book
-        SET Available_Copies = Available_Copies + 1
-        WHERE Book_ID = %s
-    """, (book_id,))
-    
-    # Check if return is late and create penalty if needed
+
+    cur.execute("UPDATE booking SET return_date = %s WHERE booking_id = %s", (today, booking_id))
+    cur.execute("UPDATE book SET available_copies = available_copies + 1 WHERE book_id = %s", (book_id,))
+
     if today > due_date:
         days_late = (today - due_date).days
-        late_fee = Decimal(days_late * 0.50)  # $0.50 per day late
-        
+        late_fee = Decimal(days_late * 0.50)
         cur.execute("""
-            INSERT INTO Penalty (Late_Fee, Date_Issued, Date_Returned, Booking_ID)
+            INSERT INTO penalty (late_fee, date_issued, date_returned, booking_id)
             VALUES (%s, %s, %s, %s)
         """, (late_fee, today, today, booking_id))
-    
+
     conn.commit()
     cur.close()
     conn.close()
-    
     return redirect(url_for("my_books"))
 
-# Add a route to view penalties
 @app.route("/penalties")
 def view_penalties():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    
+
     user_id = session["user_id"]
     conn = get_db_connection()
     cur = conn.cursor()
-    
     cur.execute("""
-        SELECT p.PenaltyID, p.Late_Fee, p.Date_Issued, p.Date_Returned, 
-               p.Payment_Date, b.Booking_ID, bk.Book_Title
-        FROM Penalty p
-        JOIN Booking b ON p.Booking_ID = b.Booking_ID
-        JOIN Book bk ON b.Book_ID = bk.Book_ID
-        WHERE b.User_ID = %s
-        ORDER BY p.Date_Issued DESC
+        SELECT p.penaltyid, p.late_fee, p.date_issued, p.date_returned, 
+               p.payment_date, b.booking_id, bk.book_title
+        FROM penalty p
+        JOIN booking b ON p.booking_id = b.booking_id
+        JOIN book bk ON b.book_id = bk.book_id
+        WHERE b.user_id = %s
+        ORDER BY p.date_issued DESC
     """, (user_id,))
-    
     penalties = cur.fetchall()
-    
     cur.close()
     conn.close()
-    
     return render_template("penalties.html", penalties=penalties)
 
-# Add a route to pay penalties
 @app.route("/pay-penalty/<int:penalty_id>", methods=["POST"])
 def pay_penalty(penalty_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
-    
+
     user_id = session["user_id"]
     today = date.today()
-    
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Verify the penalty belongs to the user
+
     cur.execute("""
-        SELECT p.PenaltyID
-        FROM Penalty p
-        JOIN Booking b ON p.Booking_ID = b.Booking_ID
-        WHERE p.PenaltyID = %s AND b.User_ID = %s AND p.Payment_Date IS NULL
+        SELECT p.penaltyid
+        FROM penalty p
+        JOIN booking b ON p.booking_id = b.booking_id
+        WHERE p.penaltyid = %s AND b.user_id = %s AND p.payment_date IS NULL
     """, (penalty_id, user_id))
-    
+
     if not cur.fetchone():
         cur.close()
         conn.close()
         return "Invalid penalty", 403
-    
-    # Update the penalty with payment date
-    cur.execute("""
-        UPDATE Penalty
-        SET Payment_Date = %s
-        WHERE PenaltyID = %s
-    """, (today, penalty_id))
-    
+
+    cur.execute("UPDATE penalty SET payment_date = %s WHERE penaltyid = %s", (today, penalty_id))
     conn.commit()
     cur.close()
     conn.close()
-    
     return redirect(url_for("view_penalties"))
 
 if __name__ == "__main__":
