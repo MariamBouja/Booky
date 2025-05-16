@@ -2,38 +2,25 @@
 {% block content %}
 <h2>Available Books</h2>
 
-<table>
-    <thead>
-        <tr>
-            <th>Title</th>
-            <th>Author</th>
-            <th>Genre</th>
-            <th>Language</th>
-            <th>Available Copies</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for b in books %}
-        <tr>
-            <td>{{ b[1] }}</td>
-            <td>{{ b[2] }}</td>
-            <td>{{ b[3] }}</td>
-            <td>{{ b[4] }}</td>
-            <td>{{ b[5] }}</td>
-            <td>
-                {% if b[5]|int > 0 %}
-                    <form method="POST" action="{{ url_for('borrow') }}">
-                        <input type="hidden" name="book_id" value="{{ b[0] }}">
-                        <button type="submit">Borrow</button>
-                    </form>
-                {% else %}
-                    <span>Not Available</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="book-grid">
+    {% for b in books %}
+    <div class="book-card">
+        <img src="{{ b[6] or 'https://via.placeholder.com/150' }}" alt="Book cover">
+        <h3>{{ b[1] }}</h3> <!-- Book Title -->
+        <p><strong>Author:</strong> {{ b[2] }}</p>
+        <p><strong>Genre:</strong> {{ b[3] }}</p>
+        <p><strong>Language:</strong> {{ b[4] }}</p>
+        <p><strong>Copies:</strong> {{ b[5] }}</p>
 
+        {% if b[5]|int > 0 %}
+        <form method="POST" action="{{ url_for('borrow') }}">
+            <input type="hidden" name="book_id" value="{{ b[0] }}">
+            <button type="submit">Borrow</button>
+        </form>
+        {% else %}
+        <span>Not Available</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
 {% endblock %}

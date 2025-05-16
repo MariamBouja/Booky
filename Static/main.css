@@ -59,3 +59,29 @@ th, td {
     margin-bottom: 10px;
 }
 
+.book-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.book-card {
+    background: white;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+}
+
+.book-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    margin-bottom: 10px;
+}
+
+.book-card h3 {
+    margin-top: 0;
+}

@@ -34,11 +34,28 @@ def test_db():
     conn.close()
     return f"Database connected: {result[0]}"
 
+
 @app.route("/books")
 def list_books():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM book WHERE available_copies > 0;")
+
+    cur.execute("""
+        SELECT 
+            book.book_id, 
+            book.book_title, 
+            CONCAT(author.author_fname, ' ', 
+                   COALESCE(author.author_mname || ' ', ''), 
+                   author.author_lname) AS full_name,
+            book.genre, 
+            book.book_language, 
+            book.available_copies,
+            book.book_image
+        FROM book
+        JOIN author ON book.author_id = author.author_id
+        WHERE book.available_copies > 0;
+    """)
+
     books = cur.fetchall()
     cur.close()
     conn.close()
@@ -255,7 +272,7 @@ def view_penalties():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT p.penaltyid, p.late_fee, p.date_issued, p.date_returned, 
+        SELECT p.penalty_id, p.late_fee, p.date_issued, p.date_returned, 
                p.payment_date, b.booking_id, bk.book_title
         FROM penalty p
         JOIN booking b ON p.booking_id = b.booking_id
@@ -279,10 +296,10 @@ def pay_penalty(penalty_id):
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT p.penaltyid
+        SELECT p.penalty_id
         FROM penalty p
         JOIN booking b ON p.booking_id = b.booking_id
-        WHERE p.penaltyid = %s AND b.user_id = %s AND p.payment_date IS NULL
+        WHERE p.penalty_id = %s AND b.user_id = %s AND p.payment_date IS NULL
     """, (penalty_id, user_id))
 
     if not cur.fetchone():
