@@ -7,12 +7,9 @@ from decimal import Decimal
 import config
 
 
-
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
-
 bcrypt = Bcrypt(app)
-
 
 
 def get_db_connection():
@@ -24,6 +21,7 @@ def get_db_connection():
         port=config.DB_PORT
     )
 
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -33,10 +31,10 @@ def login_required(f):
     return decorated_function
 
 
-
 @app.route("/")
 def home():
     return render_template("index.html")
+
 
 @app.route("/test-db")
 def test_db():
@@ -47,6 +45,7 @@ def test_db():
     cur.close()
     conn.close()
     return f"Database connected: {result[0]}"
+
 
 @app.route('/dashboard')
 @login_required
@@ -83,6 +82,7 @@ def dashboard():
 
     else:
         return "Unknown role", 400
+
 
 @app.route("/admin/dashboard")
 @login_required
@@ -124,6 +124,7 @@ def admin_dashboard():
 
     return render_template("admin_dashboard.html", data=data)
 
+
 @app.route("/dashboard")
 @login_required
 def student_dashboard():
@@ -133,7 +134,6 @@ def student_dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
 
-   
     cur.execute("""
         SELECT b.Book_ID, b.Book_Title, a.Author_Lname
         FROM Book b
@@ -153,7 +153,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-
 @app.route("/books")
 def list_books():
     conn = get_db_connection()
@@ -164,8 +163,8 @@ def list_books():
             book.book_id, 
             book.book_title, 
             CONCAT(author.author_fname, ' ', 
-                   COALESCE(author.author_mname || ' ', ''), 
-                   author.author_lname) AS full_name,
+            COALESCE(author.author_mname || ' ', ''), 
+            author.author_lname) AS full_name,
             book.genre, 
             book.book_language, 
             book.available_copies,
@@ -181,6 +180,7 @@ def list_books():
 
     return render_template("books.html", books=books)
 
+
 @app.route("/search")
 def search():
     query = request.args.get("q", "").strip()
@@ -188,7 +188,6 @@ def search():
     conn = get_db_connection()
     cur = conn.cursor()
 
-   
     cur.execute("""
         SELECT 
             b.book_id, b.book_title,
@@ -250,7 +249,6 @@ def signup():
             if cur.fetchone():
                 return "Email already registered.", 400
 
-          
             cur.execute("SELECT COALESCE(MAX(user_id), 100) + 1 FROM Appuser")
             new_user_id = cur.fetchone()[0]
 
@@ -258,15 +256,13 @@ def signup():
             is_student = role == "student"
             is_professor = role == "professor"
 
-           
             cur.execute("""
                 INSERT INTO Appuser (user_id, user_fname, user_lname, phone, email, password,
-                                     user_is_admin, user_is_student, user_is_instructor)
+                user_is_admin, user_is_student, user_is_instructor)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (new_user_id, fname, lname, phone, email, hashed_password,
-                  is_admin, is_student, is_professor))
+                is_admin, is_student, is_professor))
 
-         
             if is_student:
                 cur.execute("INSERT INTO Student (user_id, major, academic_year) VALUES (%s, '', '')", (new_user_id,))
             elif is_professor:
@@ -276,9 +272,8 @@ def signup():
 
             conn.commit()
 
-            # Set session and redirect
             session["user_id"] = new_user_id
-            session["role"] = role  # just store the string "admin", "student", or "professor"
+            session["role"] = role
             return redirect(url_for("dashboard"))
 
         except psycopg2.IntegrityError as e:
@@ -310,12 +305,11 @@ def login():
 
         if user and user[1] and bcrypt.check_password_hash(user[1], password):
             session["user_id"] = user[0]
-            # Set role
-            if user[2]:  # admin
+            if user[2]:
                 session["role"] = "admin"
-            elif user[3]:  # student
+            elif user[3]:
                 session["role"] = "student"
-            elif user[4]:  # instructor
+            elif user[4]:
                 session["role"] = "instructor"
 
             return redirect(url_for("dashboard"))
@@ -341,26 +335,22 @@ def borrow():
         cur = conn.cursor()
 
         try:
-            # Check limit
             cur.execute("SELECT COUNT(*) FROM booking WHERE user_id = %s AND return_date IS NULL", (user_id,))
             if cur.fetchone()[0] >= 3:
                 flash("You reached the limit of 3 active borrowed books.", "error")
                 return redirect(url_for("borrow"))
 
-            # Check book availability
             cur.execute("SELECT available_copies FROM book WHERE book_id = %s", (book_id,))
             copies = cur.fetchone()
             if not copies or int(copies[0]) <= 0:
                 flash("This book is no longer available.", "error")
                 return redirect(url_for("borrow"))
 
-            # Already borrowed?
             cur.execute("SELECT 1 FROM booking WHERE user_id = %s AND book_id = %s AND return_date IS NULL", (user_id, book_id))
             if cur.fetchone():
                 flash("You already borrowed this book.", "warning")
                 return redirect(url_for("borrow"))
 
-            # Borrow the book
             cur.execute("""
                 INSERT INTO booking (booking_date, due_date, user_id, book_id)
                 VALUES (%s, %s, %s, %s)
@@ -379,7 +369,6 @@ def borrow():
             cur.close()
             conn.close()
 
-    # GET request: show books
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT book_id, book_title FROM book WHERE available_copies > 0")
@@ -388,6 +377,7 @@ def borrow():
     conn.close()
 
     return render_template("borrow.html", books=books)
+
 
 @app.route('/review', methods=['GET', 'POST'])
 def review():
@@ -419,7 +409,6 @@ def review():
 
         return redirect('/')
 
-    # GET: Load books into the dropdown
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT book_id, book_title FROM book")
@@ -433,7 +422,7 @@ def review():
 @app.route('/review/<int:book_id>', methods=['POST'])
 def add_review(book_id):
     if 'user_id' not in session:
-        return redirect(url_for('login'))  # or handle unauthenticated users
+        return redirect(url_for('login'))
 
     user_id = session['user_id']
     comment = request.form['comment']
@@ -453,6 +442,7 @@ def add_review(book_id):
     conn.close()
 
     return redirect(url_for('book_detail', book_id=book_id))
+
 
 @app.route('/books/<int:book_id>/review', methods=['POST'])
 def submit_review(book_id):
@@ -476,7 +466,6 @@ def submit_review(book_id):
     conn.close()
 
     return redirect(url_for('book_detail', book_id=book_id))
-
 
 
 @app.route("/my-books")
@@ -510,16 +499,15 @@ def my_books():
     conn.close()
     return render_template("my_books.html", active_bookings=active_bookings, past_bookings=past_bookings)
 
+
 @app.route('/book/<int:book_id>')
 def book_detail(book_id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Get book info
     cur.execute("SELECT * FROM Book WHERE book_id = %s", (book_id,))
     book = cur.fetchone()
 
-    # Get author info
     cur.execute("""
         SELECT a.author_fname, a.author_lname
         FROM Author a
@@ -528,7 +516,6 @@ def book_detail(book_id):
     """, (book_id,))
     author = cur.fetchone()
 
-    # Get reviews and user names
     cur.execute("""
         SELECT r.comment, r.date_issued, u.user_fname || ' ' || u.user_lname as user_name
         FROM Review r
@@ -544,7 +531,6 @@ def book_detail(book_id):
     return render_template("book_detail.html", book=book, author=author, reviews=reviews)
 
 
-
 @app.route("/return/<int:booking_id>", methods=["POST"])
 @login_required
 def return_book(booking_id):
@@ -553,23 +539,19 @@ def return_book(booking_id):
 
     return_date = date.today()
 
-    # Get due date
     cur.execute("SELECT Due_Date FROM Booking WHERE Booking_ID = %s", (booking_id,))
     due_date = cur.fetchone()[0]
 
-    # Call the function to calculate late days
     cur.execute("SELECT getPenaltyAmount(%s, %s)", (due_date, return_date))
     penalty_days = cur.fetchone()[0]
     print("Function getPenaltyAmount returned:", penalty_days)
 
-    # Update return date
     cur.execute("""
         UPDATE Booking
         SET Return_Date = %s
         WHERE Booking_ID = %s
     """, (return_date, booking_id))
 
-    # Call the stored procedure to insert penalty if needed
     cur.execute("CALL applyPenalty(%s, %s)", (booking_id, return_date))
 
     conn.commit()
@@ -577,6 +559,7 @@ def return_book(booking_id):
     conn.close()
 
     return redirect(url_for("my_books"))
+
 
 @app.route("/penalties")
 def view_penalties():
@@ -588,7 +571,7 @@ def view_penalties():
     cur = conn.cursor()
     cur.execute("""
         SELECT p.penalty_id, p.late_fee, p.date_issued, p.date_returned, 
-               p.payment_date, b.booking_id, bk.book_title
+        p.payment_date, b.booking_id, bk.book_title
         FROM penalty p
         JOIN booking b ON p.booking_id = b.booking_id
         JOIN book bk ON b.book_id = bk.book_id
@@ -609,7 +592,6 @@ def pay_penalty(penalty_id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Validate if this penalty belongs to the user and is unpaid
     cur.execute("""
         SELECT p.penalty_id
         FROM penalty p
@@ -622,7 +604,6 @@ def pay_penalty(penalty_id):
         conn.close()
         return "Invalid penalty", 403
 
-    #  Use stored procedure instead of raw UPDATE
     cur.execute("CALL payPenalty(%s, %s)", (penalty_id, today))
 
     conn.commit()
