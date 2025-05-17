@@ -133,7 +133,7 @@ def student_dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Load all books and optionally user's bookings
+   
     cur.execute("""
         SELECT b.Book_ID, b.Book_Title, a.Author_Lname
         FROM Book b
@@ -188,7 +188,7 @@ def search():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Search in book titles and author names
+   
     cur.execute("""
         SELECT 
             b.book_id, b.book_title,
@@ -245,12 +245,12 @@ def signup():
         cur = conn.cursor()
 
         try:
-            # Check for existing email
+            
             cur.execute("SELECT 1 FROM Appuser WHERE email = %s", (email,))
             if cur.fetchone():
                 return "Email already registered.", 400
 
-            # Generate new ID
+          
             cur.execute("SELECT COALESCE(MAX(user_id), 100) + 1 FROM Appuser")
             new_user_id = cur.fetchone()[0]
 
@@ -258,7 +258,7 @@ def signup():
             is_student = role == "student"
             is_professor = role == "professor"
 
-            # Insert into Appuser
+           
             cur.execute("""
                 INSERT INTO Appuser (user_id, user_fname, user_lname, phone, email, password,
                                      user_is_admin, user_is_student, user_is_instructor)
@@ -266,7 +266,7 @@ def signup():
             """, (new_user_id, fname, lname, phone, email, hashed_password,
                   is_admin, is_student, is_professor))
 
-            # Add to role-specific table
+         
             if is_student:
                 cur.execute("INSERT INTO Student (user_id, major, academic_year) VALUES (%s, '', '')", (new_user_id,))
             elif is_professor:
@@ -622,7 +622,7 @@ def pay_penalty(penalty_id):
         conn.close()
         return "Invalid penalty", 403
 
-    # ✅ Use stored procedure instead of raw UPDATE
+    #  Use stored procedure instead of raw UPDATE
     cur.execute("CALL payPenalty(%s, %s)", (penalty_id, today))
 
     conn.commit()
