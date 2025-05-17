@@ -1,5 +1,46 @@
-{% extends "base.html" %}
-{% block content %}
-    <h2>Welcome to Booky!</h2>
-    <p>Your place to borrow and manage books online.</p>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to Booky!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+</head>
+<body class="home-body">
+    <header>
+        <h1>📘 Welcome to Booky, {{ user_name }}!</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/books">Browse Books</a>
+            <a href="/my-books">My Books</a>
+            <a href="/logout">Logout</a>
+        </nav>
+    </header>
+
+    <section class="hero-section">
+        <h2>📚 Discover, Borrow, Read!</h2>
+        <p>Explore thousands of books from our digital library — right from your campus.</p>
+        <a href="/books" class="hero-button">Start Exploring</a>
+    </section>
+
+    <section class="quick-links">
+        <div class="card">
+            <h3>📘 </h3>
+            <h3> My Borrowed Books</h3>
+            <p>Check what you’ve borrowed and track due dates.</p>
+            <a href="/my-books" class="card-btn">Go</a>
+        </div>
+        <div class="card">
+            <h3> 🔎 </h3>
+            <h3> Search Library</h3>
+            <p>Find your next read by title, author, or category.</p>
+            <a href="/books" class="card-btn">Go</a>
+        </div>
+        <div class="card">
+            <h3>⭐</h3>
+            <h3>Leave a Review</h3>
+            <p>Share your thoughts and rate books you’ve read.</p>
+            <a href="/review" class="card-btn">Go</a>
+        </div>
+    </section>
+</body>
+</html>

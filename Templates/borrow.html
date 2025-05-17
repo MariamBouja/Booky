@@ -1,23 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    <ul class="flashes">
-      {% for category, message in messages %}
-        <li class="{{ category }}">{{ message }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
 
-<h2>Borrow a Book</h2>
-<form method="POST">
-    <label for="book_id">Select Book:</label>
-    <select name="book_id" id="book_id">
-        {% for b in books %}
-        <option value="{{ b[0] }}">{{ b[1] }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit">Borrow</button>
-</form>
+<div class="borrow-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="borrow-card">
+        <h2>📚 Borrow a Book</h2>
+        <form method="POST">
+            <label for="book_id">Choose a book:</label>
+            <select name="book_id" id="book_id" required>
+                {% for b in books %}
+                <option value="{{ b[0] }}">{{ b[1] }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="borrow-btn">Borrow Now</button>
+        </form>
+    </div>
+</div>
+
 {% endblock %}

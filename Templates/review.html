@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="review-container">
+    <h2>⭐ Leave a Book Review</h2>
+
+    <form method="POST">
+        <label for="book_id">Select Book:</label>
+        <select name="book_id" id="book_id" required>
+            {% for b in books %}
+            <option value="{{ b[0] }}">{{ b[1] }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="rating">Your Rating:</label>
+        <div class="star-rating">
+            <input type="radio" name="rating" value="5" id="5" required><label for="5">★</label>
+            <input type="radio" name="rating" value="4" id="4"><label for="4">★</label>
+            <input type="radio" name="rating" value="3" id="3"><label for="3">★</label>
+            <input type="radio" name="rating" value="2" id="2"><label for="2">★</label>
+            <input type="radio" name="rating" value="1" id="1"><label for="1">★</label>
+        </div>
+
+        <label for="review_text">Your Review:</label>
+        <textarea name="review_text" id="review_text" rows="5" placeholder="Share your thoughts..." required></textarea>
+
+        <button type="submit" class="submit-btn">Submit Review</button>
+    </form>
+</div>
+{% endblock %}

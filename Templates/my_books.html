@@ -1,32 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>My Current Bookings</h2>
-<table>
-    <tr><th>Title</th><th>Booking Date</th><th>Due Date</th><th>Action</th></tr>
-    {% for b in active_bookings %}
-    <tr>
-        <td>{{ b[1] }}</td>
-        <td>{{ b[2] }}</td>
-        <td>{{ b[3] }}</td>
-        <td>
-            <form method="POST" action="{{ url_for('return_book', booking_id=b[0]) }}">
-                <button type="submit">Return</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
 
-<h2>Returned Books</h2>
-<table>
-    <tr><th>Title</th><th>Booking Date</th><th>Due Date</th><th>Return Date</th></tr>
-    {% for b in past_bookings %}
-    <tr>
-        <td>{{ b[1] }}</td>
-        <td>{{ b[2] }}</td>
-        <td>{{ b[3] }}</td>
-        <td>{{ b[4] }}</td>
-    </tr>
+<h2 style="color: #2e7d32;">📚 My Current Bookings</h2>
+{% if active_bookings %}
+<div class="book-grid">
+    {% for b in active_bookings %}
+    <div class="book-card">
+        <h3>{{ b[1] }}</h3>
+        <p><strong>Booking Date:</strong> {{ b[2] }}</p>
+        <p><strong>Due Date:</strong> {{ b[3] }}</p>
+        <form method="POST" action="{{ url_for('return_book', booking_id=b[0]) }}">
+            <button type="submit" class="btn-green">Return</button>
+        </form>
+    </div>
     {% endfor %}
-</table>
+</div>
+{% else %}
+<p>No active bookings.</p>
+{% endif %}
+
+<h2 style="color: #2e7d32; margin-top: 40px;">📘 Returned Books</h2>
+{% if past_bookings %}
+<div class="book-grid">
+    {% for b in past_bookings %}
+    <div class="book-card returned">
+        <h3>{{ b[1] }}</h3>
+        <p><strong>Booking Date:</strong> {{ b[2] }}</p>
+        <p><strong>Due Date:</strong> {{ b[3] }}</p>
+        <p><strong>Returned:</strong> {{ b[4] }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p>No returned books yet.</p>
+{% endif %}
+
 {% endblock %}

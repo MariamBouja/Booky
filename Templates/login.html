@@ -1,15 +1,23 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
 </head>
-<body>
-    <h2>Login</h2>
-    <form method="POST">
-        <label>Email: <input type="email" name="email"></label><br>
-        <label>Password: <input type="password" name="password"></label><br>
-        <button type="submit">Log In</button>
-    </form>
-    <p>Don't have an account? <a href="/signup">Sign up</a></p>
+<body class="login-body">
+    <div class="auth-container">
+        <h2>Login</h2>
+        <form method="POST" class="login-form">
+            <label>Email:
+                <input type="email" name="email" required>
+            </label>
+            <label>Password:
+                <input type="password" name="password" required>
+            </label>
+            <button type="submit">Log In</button>
+        </form>
+        <p>Don't have an account? <a href="/signup">Sign up</a></p>
+    </div>
 </body>
 </html>

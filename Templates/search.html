@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Search Results for "{{ query }}"</h2>
+
+{% if results %}
+<div class="book-grid">
+    {% for b in results %}
+    <div class="book-card">
+        <img src="{{ b[6] or 'https://via.placeholder.com/150' }}" alt="Book cover">
+        <h3>{{ b[1] }}</h3>
+        <p><strong>Author:</strong> {{ b[2] }}</p>
+        <p><strong>Genre:</strong> {{ b[3] }}</p>
+        <p><strong>Language:</strong> {{ b[4] }}</p>
+        <p><strong>Copies:</strong> {{ b[5] }}</p>
+        <form method="POST" action="{{ url_for('borrow') }}">
+            <input type="hidden" name="book_id" value="{{ b[0] }}">
+            <button type="submit">Borrow</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p>No results found.</p>
+{% endif %}
+{% endblock %}

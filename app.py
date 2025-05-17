@@ -5,6 +5,9 @@ from flask import Flask, request, session, redirect, url_for, jsonify, render_te
 from datetime import date, timedelta, datetime
 from decimal import Decimal
 import config
+from flask import request, render_template, redirect, session
+import psycopg2
+from datetime import date
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -61,6 +64,55 @@ def list_books():
     conn.close()
 
     return render_template("books.html", books=books)
+
+@app.route("/search")
+def search():
+    query = request.args.get("q", "").strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Search in book titles and author names
+    cur.execute("""
+        SELECT 
+            b.book_id, b.book_title,
+            CONCAT(a.author_fname, ' ', COALESCE(a.author_mname || ' ', ''), a.author_lname) AS author_name,
+            b.genre, b.book_language, b.available_copies, b.book_image
+        FROM book b
+        JOIN author a ON b.author_id = a.author_id
+        WHERE 
+            LOWER(b.book_title) LIKE LOWER(%s) OR
+            LOWER(a.author_fname) LIKE LOWER(%s) OR
+            LOWER(a.author_lname) LIKE LOWER(%s)
+    """, (f"%{query}%", f"%{query}%", f"%{query}%"))
+
+    results = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return render_template("search.html", query=query, results=results)
+
+
+@app.route("/suggest")
+def suggest():
+    term = request.args.get("term", "").strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT book_title FROM book
+        WHERE LOWER(book_title) LIKE LOWER(%s)
+        LIMIT 5
+    """, (f"{term}%",))
+
+    titles = [row[0] for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+
+    return jsonify(titles)
+
+
 
 
 
@@ -191,6 +243,46 @@ def borrow():
     conn.close()
 
     return render_template("borrow.html", books=books)
+
+@app.route('/review', methods=['GET', 'POST'])
+def review():
+    if request.method == 'POST':
+        book_id = request.form['book_id']
+        rating = request.form['rating']
+        review_text = request.form['review_text']
+        user_id = session.get('user_id')
+
+        if not user_id:
+            flash("You must be logged in to submit a review.", "danger")
+            return redirect('/login')
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO reviews (user_id, book_id, rating, review_text)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, book_id, rating, review_text))
+            conn.commit()
+            flash("Thank you for your review!", "success")
+        except Exception as e:
+            print("Error submitting review:", e)
+            flash("Something went wrong. Try again.", "danger")
+        finally:
+            cur.close()
+            conn.close()
+
+        return redirect('/')
+
+    # GET: Load books into the dropdown
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT book_id, book_title FROM book")
+    books = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return render_template("review.html", books=books)
 
 
 @app.route("/my-books")
