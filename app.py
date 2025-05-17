@@ -1,13 +1,11 @@
+from flask import Flask, request, session, redirect, url_for, jsonify, render_template, flash
 from flask_bcrypt import Bcrypt
-from flask import flash
+from functools import wraps
 import psycopg2
-from flask import Flask, request, session, redirect, url_for, jsonify, render_template
 from datetime import date, timedelta, datetime
 from decimal import Decimal
 import config
-from flask import request, render_template, redirect, session
-import psycopg2
-from datetime import date
+
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -22,6 +20,14 @@ def get_db_connection():
         host=config.DB_HOST,
         port=config.DB_PORT
     )
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 @app.route("/")
 def home():
@@ -36,6 +42,90 @@ def test_db():
     cur.close()
     conn.close()
     return f"Database connected: {result[0]}"
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user_id = session.get('user_id')
+    role = session.get('role')
+
+    if not user_id or not role:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if role == "admin":
+        cur.execute("SELECT * FROM admin_view WHERE user_id = %s", (user_id,))
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return render_template('admin_dashboard.html', data=data)
+
+    elif role == "student":
+        cur.execute("SELECT * FROM student_view WHERE user_id = %s", (user_id,))
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return render_template('student_dashboard.html', data=data)
+
+    elif role == "professor":
+        cur.execute("SELECT * FROM professor_view WHERE user_id = %s", (user_id,))
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return render_template('professor_dashboard.html', data=data)
+
+    else:
+        return "Unknown role", 400
+
+@app.route("/admin/dashboard")
+@login_required
+def admin_dashboard():
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT 
+            au.User_Fname || ' ' || COALESCE(au.User_Mname || ' ', '') || au.User_Lname AS user_name,
+            b.Book_Title,
+            bk.Booking_Date,
+            bk.Due_Date,
+            bk.Return_Date
+        FROM Booking bk
+        JOIN AppUser au ON bk.User_ID = au.User_ID
+        JOIN Book b ON bk.Book_ID = b.Book_ID;
+    """)
+
+    rows = cur.fetchall()
+    data = []
+    for row in rows:
+        data.append({
+            "user_name": row[0],
+            "book_title": row[1],
+            "booking_date": row[2],
+            "due_date": row[3],
+            "return_date": row[4]
+        })
+
+    cur.close()
+    conn.close()
+
+    
+    print("Data for admin dashboard:", data)
+
+    return render_template("admin_dashboard.html", data=data)
+
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
 
 
 @app.route("/books")
@@ -113,9 +203,6 @@ def suggest():
     return jsonify(titles)
 
 
-
-
-
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
@@ -124,26 +211,49 @@ def signup():
         phone = request.form["phone"]
         email = request.form["email"]
         password = request.form["password"]
+        role = request.form["role"]
+
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
         conn = get_db_connection()
         cur = conn.cursor()
 
         try:
+            # Check for existing email
             cur.execute("SELECT 1 FROM Appuser WHERE email = %s", (email,))
             if cur.fetchone():
                 return "Email already registered.", 400
 
+            # Generate new ID
             cur.execute("SELECT COALESCE(MAX(user_id), 100) + 1 FROM Appuser")
             new_user_id = cur.fetchone()[0]
 
+            is_admin = role == "admin"
+            is_student = role == "student"
+            is_professor = role == "professor"
+
+            # Insert into Appuser
             cur.execute("""
-                INSERT INTO Appuser (user_id, user_fname, user_lname, phone, email, password, user_is_student)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (new_user_id, fname, lname, phone, email, hashed_password, True))
+                INSERT INTO Appuser (user_id, user_fname, user_lname, phone, email, password,
+                                     user_is_admin, user_is_student, user_is_instructor)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (new_user_id, fname, lname, phone, email, hashed_password,
+                  is_admin, is_student, is_professor))
+
+            # Add to role-specific table
+            if is_student:
+                cur.execute("INSERT INTO Student (user_id, major, academic_year) VALUES (%s, '', '')", (new_user_id,))
+            elif is_professor:
+                cur.execute("INSERT INTO Professor (user_id, office_number, school_department) VALUES (%s, '', '')", (new_user_id,))
+            elif is_admin:
+                cur.execute("INSERT INTO Admin (user_id, admin_role) VALUES (%s, 'Librarian')", (new_user_id,))
 
             conn.commit()
-            return redirect(url_for("home"))
+
+            # Set session and redirect
+            session["user_id"] = new_user_id
+            session["role"] = role  # just store the string "admin", "student", or "professor"
+            return redirect(url_for("dashboard"))
 
         except psycopg2.IntegrityError as e:
             conn.rollback()
@@ -164,20 +274,29 @@ def login():
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT user_id, password FROM Appuser WHERE email = %s", (email,))
+        cur.execute("""
+            SELECT user_id, password, user_is_admin, user_is_student, user_is_instructor
+            FROM Appuser WHERE email = %s
+        """, (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
 
-        # ✅ Add check for NULL password
         if user and user[1] and bcrypt.check_password_hash(user[1], password):
             session["user_id"] = user[0]
-            return redirect(url_for("home"))
+            # Set role
+            if user[2]:  # admin
+                session["role"] = "admin"
+            elif user[3]:  # student
+                session["role"] = "student"
+            elif user[4]:  # instructor
+                session["role"] = "instructor"
+
+            return redirect(url_for("dashboard"))
         else:
             return "Invalid credentials", 401
 
     return render_template("login.html")
-
 
 
 @app.route("/borrow", methods=["GET", "POST"])
@@ -285,6 +404,55 @@ def review():
     return render_template("review.html", books=books)
 
 
+@app.route('/review/<int:book_id>', methods=['POST'])
+def add_review(book_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))  # or handle unauthenticated users
+
+    user_id = session['user_id']
+    comment = request.form['comment']
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO Review (User_ID, Book_ID, Comment, Date_Issued)
+        VALUES (%s, %s, %s, CURRENT_DATE)
+        ON CONFLICT (User_ID, Book_ID) DO UPDATE 
+        SET Comment = EXCLUDED.Comment, Date_Issued = EXCLUDED.Date_Issued;
+    """, (user_id, book_id, comment))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('book_detail', book_id=book_id))
+
+@app.route('/books/<int:book_id>/review', methods=['POST'])
+def submit_review(book_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    comment = request.form.get('comment')
+    date_issued = datetime.now().date()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO Review (User_ID, Book_ID, Comment, Date_Issued)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (User_ID, Book_ID) DO UPDATE 
+        SET Comment = EXCLUDED.Comment, Date_Issued = EXCLUDED.Date_Issued
+    """, (user_id, book_id, comment, date_issued))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('book_detail', book_id=book_id))
+
+
+
 @app.route("/my-books")
 def my_books():
     if "user_id" not in session:
@@ -315,6 +483,42 @@ def my_books():
     cur.close()
     conn.close()
     return render_template("my_books.html", active_bookings=active_bookings, past_bookings=past_bookings)
+
+@app.route('/book/<int:book_id>')
+def book_detail(book_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Get book info
+    cur.execute("SELECT * FROM Book WHERE book_id = %s", (book_id,))
+    book = cur.fetchone()
+
+    # Get author info
+    cur.execute("""
+        SELECT a.author_fname, a.author_lname
+        FROM Author a
+        JOIN Book b ON a.author_id = b.author_id
+        WHERE b.book_id = %s
+    """, (book_id,))
+    author = cur.fetchone()
+
+    # Get reviews and user names
+    cur.execute("""
+        SELECT r.comment, r.date_issued, u.user_fname || ' ' || u.user_lname as user_name
+        FROM Review r
+        JOIN Appuser u ON r.user_id = u.user_id
+        WHERE r.book_id = %s
+        ORDER BY r.date_issued DESC
+    """, (book_id,))
+    reviews = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("book_detail.html", book=book, author=author, reviews=reviews)
+
+
+
 
 @app.route("/return-book/<int:booking_id>", methods=["POST"])
 def return_book(booking_id):

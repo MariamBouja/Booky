@@ -14,10 +14,20 @@
             <label>Phone: <input type="text" name="phone" required></label>
             <label>Email: <input type="email" name="email" required></label>
             <label>Password: <input type="password" name="password" required></label>
+
+            <!-- 👇 Role selection dropdown -->
+            <label for="role">Select Role:
+                <select name="role" id="role" required>
+                    <option value="">--Choose--</option>
+                    <option value="student">Student</option>
+                    <option value="professor">Professor</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </label>
+
             <button type="submit">Sign Up</button>
         </form>
         <p>Already have an account? <a href="/login">Log in</a></p>
     </div>
 </body>
-
 </html>

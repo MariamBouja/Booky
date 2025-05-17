@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="book-detail">
+    <h2>{{ book[1] }}</h2> <!-- Book Title -->
+
+    <p><strong>Author:</strong> 
+        {% if author %}
+            {{ author[0] }} {{ author[1] }}
+        {% else %}
+            Unknown
+        {% endif %}
+    </p>
+    <p><strong>Publication Year:</strong> {{ book[3] }}</p>
+    <p><strong>Genre:</strong> {{ book[4] }}</p>
+    <p><strong>Language:</strong> {{ book[5] }}</p>
+    <p><strong>Condition:</strong> {{ book[7] }}</p>
+
+    <h3>📚 Reviews:</h3>
+    <h3>Leave a Review:</h3>
+        <form method="POST" action="{{ url_for('add_review', book_id=book[0]) }}">
+            <textarea name="comment" rows="4" cols="50" placeholder="Write your review here..." required></textarea><br>
+            <button type="submit">Submit Review</button>
+        </form>
+
+    {% if reviews %}
+        <ul>
+        {% for review in reviews %}
+            <li>
+                <strong>{{ review[2] }}:</strong> {{ review[0] }} <br>
+                <small><i>{{ review[1] }}</i></small>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No reviews yet.</p>
+    {% endif %}
+</div>
+
+
+{% endblock %}

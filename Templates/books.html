@@ -4,23 +4,20 @@
 
 <div class="book-grid">
     {% for b in books %}
-    <div class="book-card">
-        <img src="{{ b[6] or 'https://via.placeholder.com/150' }}" alt="Book cover">
-        <h3>{{ b[1] }}</h3> <!-- Book Title -->
-        <p><strong>Author:</strong> {{ b[2] }}</p>
-        <p><strong>Genre:</strong> {{ b[3] }}</p>
-        <p><strong>Language:</strong> {{ b[4] }}</p>
-        <p><strong>Copies:</strong> {{ b[5] }}</p>
-
-        {% if b[5]|int > 0 %}
-        <form method="POST" action="{{ url_for('borrow') }}">
-            <input type="hidden" name="book_id" value="{{ b[0] }}">
-            <button type="submit">Borrow</button>
-        </form>
-        {% else %}
-        <span>Not Available</span>
-        {% endif %}
-    </div>
+    
+    <a href="{{ url_for('book_detail', book_id=b[0]) }}" class="book-link">
+        <div class="book-card">
+            <img src="{{ b[6] or 'https://via.placeholder.com/150' }}" alt="Book cover">
+            <h3>{{ b[1] }}</h3>
+            <p><strong>Author:</strong> {{ b[2] }}</p>
+            <p><strong>Genre:</strong> {{ b[3] }}</p>
+            <p><strong>Language:</strong> {{ b[4] }}</p>
+            <p><strong>Copies:</strong> {{ b[5] }}</p>
+            <p class="details-link">📖 View Details</p>
+        </div>
+    </a>
+    
+    
     {% endfor %}
 </div>
 {% endblock %}

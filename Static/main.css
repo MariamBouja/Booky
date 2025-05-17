@@ -604,3 +604,12 @@ input[type="text"] {
 .submit-btn:hover {
     background-color: #357ABD;
 }
+.book-link {
+    text-decoration: none;
+    color: inherit;
+  }
+  .book-card-link {
+    text-decoration: none;
+    color: inherit;
+}
+  
