@@ -1,41 +1,59 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="book-detail">
-    <h2>{{ book[1] }}</h2> 
+<div class="book-detail-container">
+    {% if book[8] %}
+    {% if 'http' in book[8] %}
+        <img src="{{ book[8] }}" alt="Book cover of {{ book[1] }}" class="book-image">
+    {% else %}
+        <img src="{{ url_for('static', filename='images/' + book[8]) }}" alt="Book cover of {{ book[1] }}" class="book-image">
+    {% endif %}
+{% else %}
+<img src="{{ url_for('static', filename='images/default.jpg') }}" alt="No cover available" class="book-image">
+{% endif %}
 
-    <p><strong>Author:</strong> 
-        {% if author %}
-            {{ author[0] }} {{ author[1] }}
-        {% else %}
-            Unknown
-        {% endif %}
-    </p>
-    <p><strong>Publication Year:</strong> {{ book[3] }}</p>
-    <p><strong>Genre:</strong> {{ book[4] }}</p>
-    <p><strong>Language:</strong> {{ book[5] }}</p>
-    <p><strong>Condition:</strong> {{ book[7] }}</p>
 
-    <h3>📚 Reviews:</h3>
-    <h3>Leave a Review:</h3>
+    <div class="book-info-flex">
+
+
+        <!-- Book Details -->
+
+        <div class="book-info" style="text-align: center;">
+            <h2 class="book-title">{{ book[1] }}</h2>
+
+            <ul class="book-meta" style="list-style: none; padding: 0;">
+                <li><strong>Author:</strong> {% if author %} {{ author[0] }} {{ author[1] }} {% else %} Unknown {% endif %}</li>
+                <li><strong>Publication Year:</strong> {{ book[3] }}</li>
+                <li><strong>Genre:</strong> {{ book[4] }}</li>
+                <li><strong>Language:</strong> {{ book[5] }}</li>
+                <li><strong>Condition:</strong> {{ book[7] }}</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <!-- Review Section -->
+    <div class="review-section">
+        <h3>📝 Leave a Review</h3>
         <form method="POST" action="{{ url_for('add_review', book_id=book[0]) }}">
-            <textarea name="comment" rows="4" cols="50" placeholder="Write your review here..." required></textarea><br>
-            <button type="submit">Submit Review</button>
+            <textarea name="comment" placeholder="Write your review here..." rows="4" required></textarea>
+            <button type="submit" class="btn-green">Submit Review</button>
         </form>
 
-    {% if reviews %}
-        <ul>
-        {% for review in reviews %}
-            <li>
-                <strong>{{ review[2] }}:</strong> {{ review[0] }} <br>
-                <small><i>{{ review[1] }}</i></small>
-            </li>
-        {% endfor %}
-        </ul>
-    {% else %}
-        <p>No reviews yet.</p>
-    {% endif %}
+        <h3 style="margin-top: 30px;">📚 Reviews</h3>
+        {% if reviews %}
+            <ul class="review-list">
+            {% for review in reviews %}
+                <li class="review-card">
+                    <p><strong>{{ review[2] }}:</strong> {{ review[0] }}</p>
+                    <small><i>{{ review[1] }}</i></small>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty-text">No reviews yet.</p>
+        {% endif %}
+    </div>
 </div>
-
 
 {% endblock %}

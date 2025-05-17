@@ -6,7 +6,9 @@
 <div class="book-grid">
     {% for b in results %}
     <div class="book-card">
-        <img src="{{ b[6] or 'https://via.placeholder.com/150' }}" alt="Book cover">
+        
+        <img src="{{ b[6] or 'https://via.placeholder.com/150' }}" alt="Book cover" class="search-book-img">
+
         <h3>{{ b[1] }}</h3>
         <p><strong>Author:</strong> {{ b[2] }}</p>
         <p><strong>Genre:</strong> {{ b[3] }}</p>

@@ -5,6 +5,10 @@ DB_PASS = "W230604"
 DB_HOST = "localhost" 
 DB_PORT = "5432"
 
-# Flask configuration
 SECRET_KEY = "dev"
-#added
+
+
+#source /path/to/your/venv/bin/activate
+#pip install flask-bcrypt
+
+#python /Users/mac/Desktop/Booky/app.py

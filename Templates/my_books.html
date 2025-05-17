@@ -1,38 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2 style="color: #2e7d32;">📚 My Current Bookings</h2>
-{% if active_bookings %}
-<div class="book-grid">
-    {% for b in active_bookings %}
-    <div class="book-card">
-        <h3>{{ b[1] }}</h3>
-        <p><strong>Booking Date:</strong> {{ b[2] }}</p>
-        <p><strong>Due Date:</strong> {{ b[3] }}</p>
-        <form method="POST" action="{{ url_for('return_book', booking_id=b[0]) }}">
-            <button type="submit" class="btn-green">Return</button>
-        </form>
-    </div>
-    {% endfor %}
-</div>
-{% else %}
-<p>No active bookings.</p>
-{% endif %}
+<section class="page-section">
+    <h2 class="section-title">📚 My Current Bookings</h2>
 
-<h2 style="color: #2e7d32; margin-top: 40px;">📘 Returned Books</h2>
-{% if past_bookings %}
-<div class="book-grid">
-    {% for b in past_bookings %}
-    <div class="book-card returned">
-        <h3>{{ b[1] }}</h3>
-        <p><strong>Booking Date:</strong> {{ b[2] }}</p>
-        <p><strong>Due Date:</strong> {{ b[3] }}</p>
-        <p><strong>Returned:</strong> {{ b[4] }}</p>
+    {% if active_bookings %}
+    <div class="book-grid">
+        {% for b in active_bookings %}
+        <div class="book-card">
+            <h3 class="book-title">{{ b[1] }}</h3>
+            <p><strong>Booking Date:</strong> {{ b[2] }}</p>
+            <p><strong>Due Date:</strong> {{ b[3] }}</p>
+            <form method="POST" action="{{ url_for('return_book', booking_id=b[0]) }}">
+                <button type="submit" class="btn-green">Return</button>
+            </form>
+        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
-{% else %}
-<p>No returned books yet.</p>
-{% endif %}
+    {% else %}
+    <p class="empty-text">You currently have no active bookings.</p>
+    {% endif %}
+</section>
+
+<section class="page-section">
+    <h2 class="section-title">📘 Returned Books</h2>
+
+    {% if past_bookings %}
+    <div class="book-grid">
+        {% for b in past_bookings %}
+        <div class="book-card returned">
+            <h3 class="book-title">{{ b[1] }}</h3>
+            <p><strong>Booking Date:</strong> {{ b[2] }}</p>
+            <p><strong>Due Date:</strong> {{ b[3] }}</p>
+            <p><strong>Returned:</strong> {{ b[4] }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-text">You haven't returned any books yet.</p>
+    {% endif %}
+</section>
 
 {% endblock %}
