@@ -7,10 +7,13 @@ from decimal import Decimal
 import config
 
 
+
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
 bcrypt = Bcrypt(app)
+
+
 
 def get_db_connection():
     return psycopg2.connect(
@@ -20,6 +23,7 @@ def get_db_connection():
         host=config.DB_HOST,
         port=config.DB_PORT
     )
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -27,6 +31,7 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
 
 
 @app.route("/")
@@ -119,6 +124,27 @@ def admin_dashboard():
 
     return render_template("admin_dashboard.html", data=data)
 
+@app.route("/dashboard")
+@login_required
+def student_dashboard():
+    if session.get("role") == "admin":
+        return redirect(url_for("admin_dashboard"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Load all books and optionally user's bookings
+    cur.execute("""
+        SELECT b.Book_ID, b.Book_Title, a.Author_Lname
+        FROM Book b
+        JOIN Author a ON b.Author_ID = a.Author_ID
+    """)
+    books = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("student_dashboard.html", books=books)
 
 
 @app.route("/logout")
@@ -519,44 +545,37 @@ def book_detail(book_id):
 
 
 
-
-@app.route("/return-book/<int:booking_id>", methods=["POST"])
+@app.route("/return/<int:booking_id>", methods=["POST"])
+@login_required
 def return_book(booking_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
-    user_id = session["user_id"]
-    today = date.today()
-
     conn = get_db_connection()
     cur = conn.cursor()
+
+    return_date = date.today()
+
+    # Get due date
+    cur.execute("SELECT Due_Date FROM Booking WHERE Booking_ID = %s", (booking_id,))
+    due_date = cur.fetchone()[0]
+
+    # Call the function to calculate late days
+    cur.execute("SELECT getPenaltyAmount(%s, %s)", (due_date, return_date))
+    penalty_days = cur.fetchone()[0]
+    print("Function getPenaltyAmount returned:", penalty_days)
+
+    # Update return date
     cur.execute("""
-        SELECT book_id, due_date
-        FROM booking
-        WHERE booking_id = %s AND user_id = %s AND return_date IS NULL
-    """, (booking_id, user_id))
-    booking = cur.fetchone()
-    if not booking:
-        cur.close()
-        conn.close()
-        return "Invalid booking", 403
+        UPDATE Booking
+        SET Return_Date = %s
+        WHERE Booking_ID = %s
+    """, (return_date, booking_id))
 
-    book_id, due_date = booking
-
-    cur.execute("UPDATE booking SET return_date = %s WHERE booking_id = %s", (today, booking_id))
-    cur.execute("UPDATE book SET available_copies = available_copies + 1 WHERE book_id = %s", (book_id,))
-
-    if today > due_date:
-        days_late = (today - due_date).days
-        late_fee = Decimal(days_late * 0.50)
-        cur.execute("""
-            INSERT INTO penalty (late_fee, date_issued, date_returned, booking_id)
-            VALUES (%s, %s, %s, %s)
-        """, (late_fee, today, today, booking_id))
+    # Call the stored procedure to insert penalty if needed
+    cur.execute("CALL applyPenalty(%s, %s)", (booking_id, return_date))
 
     conn.commit()
     cur.close()
     conn.close()
+
     return redirect(url_for("my_books"))
 
 @app.route("/penalties")
@@ -581,16 +600,16 @@ def view_penalties():
     conn.close()
     return render_template("penalties.html", penalties=penalties)
 
-@app.route("/pay-penalty/<int:penalty_id>", methods=["POST"])
-def pay_penalty(penalty_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
 
+@app.route("/pay-penalty/<int:penalty_id>", methods=["POST"])
+@login_required
+def pay_penalty(penalty_id):
     user_id = session["user_id"]
     today = date.today()
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # Validate if this penalty belongs to the user and is unpaid
     cur.execute("""
         SELECT p.penalty_id
         FROM penalty p
@@ -603,11 +622,14 @@ def pay_penalty(penalty_id):
         conn.close()
         return "Invalid penalty", 403
 
-    cur.execute("UPDATE penalty SET payment_date = %s WHERE penaltyid = %s", (today, penalty_id))
+    # ✅ Use stored procedure instead of raw UPDATE
+    cur.execute("CALL payPenalty(%s, %s)", (penalty_id, today))
+
     conn.commit()
     cur.close()
     conn.close()
     return redirect(url_for("view_penalties"))
+
 
 if __name__ == "__main__":
     app.run(debug=True)

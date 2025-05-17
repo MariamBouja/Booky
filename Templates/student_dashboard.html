@@ -3,40 +3,39 @@
 <head>
     <title>Booky Library</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
-
-
 </head>
 <body>
-    <header>
-        <h1>📚 Booky Library System</h1>
-        <nav>
-            <a href="/my-books">My Books</a> |
-            <a href="/penalties">Penalties</a> |
-            <a href="/">Home</a> |
-            <a href="/books">Books</a> |
-            <a href="{{ url_for('borrow') }}">Borrow a Book</a>
-
-            <!-- 🔍 Add this Search Form -->
-
-        <!-- Inside base.html -->
-
+<header>
+    <h1>📚 Booky Library System</h1>
+    <nav>
+        <a href="/my-books">My Books</a> |
+        <a href="/penalties">Penalties</a> |
+        <a href="/">Home</a> |
+        <a href="/signup">Sign Up</a> |
+        <a href="/login">Log In</a> |
+        <a href="/books">Books</a> |
+        <a href="{{ url_for('borrow') }}">Borrow a Book</a>
+        <a href="{{ url_for('logout') }}">Sign Out</a>
         <div class="search-container">
             <form action="{{ url_for('search') }}" method="get" autocomplete="off">
                 <input type="text" name="q" id="search-input" placeholder="Search books or authors">
                 <button type="submit">Search</button>
             </form>
-            <div id="suggestions" class="suggestions"></div> <!-- moved here -->
+            <div id="suggestions" class="suggestions"></div>
         </div>
+    </nav>
+</header>
 
-
-
-        </nav>
-    </header>
-
-    <main>
-        {% block content %}{% endblock %}
-    </main>
-</body>
+<main>
+    {% block content %}
+    <h2>📖 All Books</h2>
+    <ul>
+        {% for book in books %}
+            <li>{{ book[1] }} by {{ book[2] }}</li>
+        {% endfor %}
+    </ul>
+    {% endblock %}
+</main>
 
 <style>
     .suggestions {
@@ -55,21 +54,21 @@
     .suggestions div:hover {
         background-color: #eee;
     }
-    </style>
+</style>
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const searchInput = document.getElementById("search-input");
         const suggestionsDiv = document.getElementById("suggestions");
-    
+
         searchInput.addEventListener("input", function () {
             const query = this.value.trim();
-    
+
             if (query.length < 1) {
                 suggestionsDiv.innerHTML = "";
                 return;
             }
-    
+
             fetch(`/suggest?term=${encodeURIComponent(query)}`)
                 .then(res => res.json())
                 .then(data => {
@@ -80,22 +79,19 @@
                         option.onclick = () => {
                             searchInput.value = title;
                             suggestionsDiv.innerHTML = "";
-                            // Auto-submit the form
                             searchInput.form.submit();
                         };
                         suggestionsDiv.appendChild(option);
                     });
                 });
         });
-    
-        // Close suggestions when clicking outside
+
         document.addEventListener("click", function (e) {
             if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
                 suggestionsDiv.innerHTML = "";
             }
         });
     });
-    </script>
-    
-
+</script>
+</body>
 </html>
